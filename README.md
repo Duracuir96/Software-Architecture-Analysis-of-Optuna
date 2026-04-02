@@ -2,7 +2,6 @@
 
 **Course:** Software Architecture — Wuhan University  
 **Instructor:** Prof. Peng Liang  
-**Student:** [Your Name]  
 **Subject repo:** https://github.com/optuna/optuna
 
 ---
@@ -63,7 +62,7 @@ Each view lives in its own folder with a `notes.md` and a `diagram.png`.
 ## Architectural Decisions (updated each step)
 
 Full tracker →
-[`architectural-decisions/patterns-tactics-qa.md`]
+[`architectural-decisions/patterns-tactics-qa.md`](architectural-decisions/patterns-tactics-qa.md)
 
 ### Design Patterns (current)
 
