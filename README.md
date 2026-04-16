@@ -2,6 +2,7 @@
 
 **Course:** Software Architecture — Wuhan University  
 **Instructor:** Prof. Peng Liang  
+**Student:** [Your Name]  
 **Subject repo:** https://github.com/optuna/optuna
 
 ---
@@ -50,9 +51,9 @@ Each view lives in its own folder with a `notes.md` and a `diagram.png`.
 
 | # | View | Question answered | Folder | Status |
 |---|---|---|---|---|
-| 1 | Module Decomposition | How is the code organized statically? | `views/view-1-module-decomposition/` | 🔄 Step 2 |
-| 2 | Component & Connector | How do components interact at runtime? | `views/view-2-component-connector/` | ⬜ Step 3 |
-| 3 | Class & Inheritance | How is the type hierarchy structured? | `views/view-3-class-inheritance/` | ⬜ Step 3 |
+| 1 | Module Decomposition | How is the code organized statically? | `views/view-1-module-decomposition/` | ✅ Step 2 |
+| 2 | Component & Connector | How do components interact at runtime? | `views/view-2-component-connector/` | ✅ Step 3 |
+| 3 | Class & Inheritance | How is the type hierarchy structured? | `views/view-3-class-inheritance/` | ✅ Step 3 |
 | 4 | Deployment | How is Optuna deployed in real systems? | `views/view-4-deployment/` | ⬜ Step 6 |
 | 5 | Historical Evolution | How has the architecture evolved 2018→2024? | `views/view-5-historical-evolution/` | ⬜ Step 6 |
 | 6 | Dependency & Coupling | Who depends on what, and how tightly? | `views/view-6-dependency-coupling/` | ⬜ Step 6 |
@@ -68,10 +69,12 @@ Full tracker →
 
 | Pattern | Location | Evidence |
 |---|---|---|
-| **Strategy** | `study/study.py` | `self.sampler`, `self.pruner`, `self._storage` — all injected interfaces |
-| **Template Method** | `samplers/_base.py` | `BaseSampler` defines the sampling sequence skeleton |
-| **Factory** | `optuna/__init__.py` | `create_study()` wires all components together |
-| **Null Object** | `pruners/_nop.py` | `NopPruner` disables pruning without conditionals |
+| **Strategy ×3** | `study/study.py` L.90–94 | `self.sampler`, `self.pruner`, `self._storage` — all injected interfaces |
+| **Template Method** | `samplers/_base.py` L.69–166 | `BaseSampler` defines the 3-step sampling sequence skeleton |
+| **Factory** | `optuna/__init__.py` | `create_study()` wires all 4 components together |
+| **Observer** | `study/_optimize.py` L.176 | `callback(study, deepcopy(frozen_trial))` post-trial |
+| **Null Object** | `pruners/_nop.py` | `NopPruner.prune() → False` — disables pruning without conditionals |
+| **Decorator** | `pruners/_patient.py` | `PatientPruner` wraps any `BasePruner` instance |
 
 ### Tactics (current)
 
@@ -84,15 +87,18 @@ Full tracker →
 | Scalability | Use a broker | `GrpcStorageProxy` between workers and DB |
 | Reliability | Heartbeat | `storages/_heartbeat.py` detects dead workers |
 | Performance | Cache | `_CachedStorage` reduces DB round-trips |
+| Modifiability | Anticipate expected changes | Plugin ABCs are explicit extension contracts |
 | Modifiability | Deprecation policy | 2-version grace period via `_deprecated.py` |
+| Usability | Façade | `create_study()` hides all wiring complexity |
 
 ### Known Weaknesses (current)
 
 | Weakness | Location | Impact |
 |---|---|---|
-| God Object | `study/study.py` — 1751 lines | Violates SRP, potential maintenance bottleneck |
+| God Object | `study/study.py` — 1751 lines, 15+ public methods | Violates SRP, potential maintenance bottleneck |
 | No native async | `_optimize.py` — ThreadPoolExecutor only | Python GIL limits true CPU parallelism |
 | SQLite not parallel-safe | `storages/_rdb/` | Risk of lock contention if misconfigured |
+| RDBStorage bottleneck | `storages/_rdb/storage.py` — 1224 lines | Central DB bottleneck at high worker count |
 
 ---
 
@@ -113,14 +119,44 @@ Full tracker →
 
 ---
 
-### 🔄 Step 2 — View 1: Module Decomposition *(in progress)*
+### ✅ Step 2 — View 1: Module Decomposition
 
-- [ ] Produce Module Decomposition diagram →
-  `views/view-1-module-decomposition/diagram.png`
-- [ ] Write view notes →
-  `views/view-1-module-decomposition/notes.md`
-- [ ] Identify dependency directions between modules
-- [ ] Update architectural decisions tracker
+- [x] Analyzed full `optuna/` directory tree — 15 modules, 5 architectural layers identified
+- [x] Classified modules: Core / Plugin / Optional / Infrastructure / Private
+- [x] Extracted real dependency graph from import statements
+- [x] Identified lazy-loading strategy (`_LazyImport`) for heavy dependencies
+- [x] Produced Module Decomposition diagram → `views/view-1-module-decomposition/`
+- [x] Updated architectural decisions tracker
+
+**Key insight:**
+> The underscore convention (`_median.py`, `_optimize.py`) is enforced
+> rigorously — only `__init__.py` files expose the public API.
+> `storages/` is heavier than `samplers/` (8,058 vs 6,665 lines) —
+> persistence is architecturally more complex than the algorithms.
+
+---
+
+### ✅ Step 3 — Views 2 & 3: C&C + Class Inheritance
+
+- [x] Traced full trial lifecycle — 5 phases, 18 connectors documented with exact signatures
+- [x] Identified Observer Pattern in callbacks (`deepcopy` enforcement verified)
+- [x] Identified Decorator Pattern in `PatientPruner`
+- [x] Identified multiple inheritance: `RDBStorage(BaseStorage, BaseHeartbeat)`
+- [x] Identified `BaseGASampler` as intermediate ABC — 2-level hierarchy
+- [x] Verified ABC enforcement by live Python tests (TypeError messages captured)
+- [x] Documented `TYPE_CHECKING` pattern — avoids circular imports at runtime
+- [x] Documented `get_storage()` as Factory + Adapter combined
+- [x] Produced C&C Runtime diagram → `views/view-2-component-connector/`
+- [x] Produced Class & Inheritance diagram → `views/view-3-class-inheritance/`
+- [x] Updated architectural decisions tracker
+
+**Key insight:**
+> `Storage` is called a minimum of 4 times per trial — at creation,
+> per parameter suggested, per intermediate value reported, and at
+> final state. This granular persistence is a deliberate reliability
+> decision: no data is lost even if a worker crashes mid-trial.
+> The heartbeat mechanism in `storages/_heartbeat.py` confirms this
+> was an explicit architectural concern, not an accident.
 
 ---
 
@@ -131,7 +167,3 @@ Full tracker →
 - Kruchten, P. (1995). *Architectural Blueprints — The 4+1 View Model.* IEEE Software.
 - Optuna Documentation. https://optuna.readthedocs.io
 - Optuna GitHub. https://github.com/optuna/optuna
-```
-
----
-
