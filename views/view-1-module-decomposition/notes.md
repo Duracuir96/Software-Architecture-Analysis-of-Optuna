@@ -45,4 +45,79 @@
 
 ---
 
+
+```markdown
 ## 5-layer architecture
+
+┌──────────────────────────────────────────────────────┐
+│  PUBLIC API   __init__.py                            │
+│  create_study() · Study · Trial · TrialPruned        │
+├──────────────────────────────────────────────────────┤
+│  CORE  (stable — changes rarely)                     │
+│  study/  2,873 lines    trial/  1,759 lines          │
+│  distributions.py  765 lines                         │
+├──────────────────────────────────────────────────────┤
+│  PLUGIN LAYER  (interchangeable via ABCs)            │
+│  samplers/  6,665 lines    BaseSampler  (3 abstract) │
+│  pruners/   1,530 lines    BasePruner   (1 abstract) │
+│  storages/  8,058 lines    BaseStorage (17 abstract) │
+├──────────────────────────────────────────────────────┤
+│  OPTIONAL  (zero impact on core)                     │
+│  integration/  visualization/  artifacts/            │
+├──────────────────────────────────────────────────────┤
+│  INFRASTRUCTURE                                      │
+│  testing/  _gp/  _hypervolume/  _deprecated.py       │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+## Dependency graph (extracted from imports)
+
+```
+study/    → samplers/ (via BaseSampler only)
+study/    → pruners/  (via BasePruner only)
+study/    → storages/ (via BaseStorage only)
+study/    → trial/
+trial/    → distributions.py
+samplers/ → distributions.py, search_space/, _gp/, _hypervolume/
+pruners/  → trial/ (TrialState), study/ (StudyDirection)
+storages/ → distributions.py, trial/, study/ (FrozenStudy)
+integration/ → nothing from optuna core at load time
+visualization/ → study/, trial/, samplers/ (read only)
+```
+
+**Dependency rule verified:** Core never imports concrete plugin implementations.
+
+---
+
+## Key observations
+
+### 1. The underscore convention is enforced rigorously
+
+All implementation files are prefixed `_` (`_median.py`, `_optimize.py`, `_cached_storage.py`). Only `__init__.py` files expose the public API. This is Python's encapsulation convention applied consistently.
+
+### 2. `storages/` is heavier than `samplers/` (8,058 vs 6,665 lines)
+
+Persistence is architecturally more complex than the optimization algorithms. The `_rdb/alembic/versions/` folder contains 10 migration files — a direct trace of schema evolution since v0.9.0.
+
+### 3. Lazy-loading strategy for heavy optional dependencies
+
+`visualization`, `importance`, and `artifacts` are lazy-loaded from the root `__init__.py` via `_LazyImport`. Plotly and scikit-learn are never imported at startup — only when the user calls a visualization function.
+
+### 4. `testing/` is a first-class architectural citizen
+
+A dedicated test module means any custom `BaseSampler` implementation can be validated against the standard Optuna test suite automatically. This makes testability a structural property, not just a convention.
+
+---
+
+## Architectural insights for the report
+
+| Tactic | Implementation |
+|--------|----------------|
+| **Extensibility** | Plugin layer is fully isolated behind ABCs — adding a new sampler requires zero changes outside `samplers/`. |
+| **Usability** | `__init__.py` exposes only 5 names at top level — the complexity of 200+ files is completely hidden from the user. |
+| **Performance** | Lazy imports keep startup time minimal regardless of installed optional dependencies. |
+```
+
+---
