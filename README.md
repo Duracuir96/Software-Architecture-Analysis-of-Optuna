@@ -2,7 +2,7 @@
 
 **Course:** Software Architecture — Wuhan University  
 **Instructor:** Prof. Peng Liang  
-**Student:** [Your Name]  
+**Student:** VOLDI少坎  
 **Subject repo:** https://github.com/optuna/optuna
 
 ---
