@@ -72,13 +72,17 @@ Full tracker →
 > Distinct from Design Patterns — these operate at **system level**.
 > Source: Bass, Clements, Kazman — *Software Architecture in Practice, 3rd Ed.*
 
-| Pattern | Where in Optuna | QA Addressed | Key Tradeoff |
-|---|---|---|---|
-| **Layered** | 5-layer structure: API / Core / Plugin / Optional / Infra | Modifiability · Extensibility | Performance penalty per layer crossing · 3 layer violations identified |
-| **Shared Data** | All workers share `BaseStorage` (single source of truth) | Scalability · Reliability | `RDBStorage` central bottleneck at high worker count |
-| **Broker** | `GrpcStorageProxy` between 1000+ workers and PostgreSQL | Scalability · Performance | +2 network hops latency · experimental since v4.2.0 |
-| **Client-Server** | `Study` (client) → `BaseStorage` (server) — unidirectional | Scalability · Separation | Server = potential single point of failure |
-| **Publish-Subscribe** | `study.optimize(callbacks=[...])` post-trial events | Interoperability · Modifiability | Synchronous — slow callback = trial latency |
+| # | Pattern | Where in Optuna | QA Addressed | Key Tradeoff |
+|---|---|---|---|---|
+| 1 | **Layered** | 5-layer structure: API / Core / Plugin / Optional / Infra | Modifiability · Extensibility | Performance penalty per layer crossing · 3 violations |
+| 2 | **Shared Data** | All workers share `BaseStorage` (single source of truth) | Scalability · Reliability | `RDBStorage` central bottleneck at high worker count |
+| 3 | **Broker** | `GrpcStorageProxy` between 1000+ workers and PostgreSQL | Scalability · Performance | +2 network hops · experimental since v4.2.0 |
+| 4 | **Client-Server** | `Study` (client) → `BaseStorage` (server) — unidirectional | Scalability · Separation | Server = potential single point of failure |
+| 5 | **Publish-Subscribe** | `study.optimize(callbacks=[...])` post-trial events | Interoperability · Modifiability | Synchronous — slow callback = trial latency |
+| 6 | **Microkernel** | Stable kernel (study/+trial/+ABCs) + lazy-loaded plugins | Extensibility · Performance | Import errors hidden until access via `_LazyImport` |
+| 7 | **Repository** | `BaseStorage` — 18 abstract methods, full persistence contract | Testability · Portability | Heaviest contract — 18 methods required for custom storage |
+| 8 | **Pipeline (Pipe & Filter)** | 5-filter sequence in `_run_trial()`: suggest→evaluate→prune→persist→callback | Modifiability · Extensibility | Synchronous only — no streaming between filters |
+| 9 | **Multi-Tier** | 3 tiers in gRPC mode: Worker / GrpcProxy / PostgreSQL | Scalability · Separation | Operational complexity — 3 components to deploy and maintain |
 
 ---
 
@@ -106,6 +110,7 @@ Full tracker →
 |---|---|---|---|
 | Extensibility | Abstract interfaces | `BaseSampler`, `BasePruner`, `BaseStorage` | Runtime enforcement only — `TypeError` at instantiation |
 | Extensibility | Two-level ABC hierarchy | `BaseGASampler(BaseSampler)` | Added cognitive overhead for contributors |
+| Extensibility | Plugin registration via ABCs | Subclass + pass to `create_study()` — no registry needed | No discovery mechanism — user must know the class exists |
 | Testability | Dependency injection | `Study.__init__` receives all 3 dependencies | Constructor grows with each new plugin axis |
 | Testability | Separate concerns | `InMemoryStorage` — zero infrastructure | Cannot be disabled even for debug purposes |
 | Testability | Dedicated test fixtures | `optuna/testing/` standard suites for all ABCs | None |
@@ -117,11 +122,14 @@ Full tracker →
 | Reliability | Immutable data | `copy.deepcopy(frozen_trial)` before callbacks | Memory cost per trial |
 | Reliability | Retry on failure | `RetryFailedTrialCallback` re-enqueues FAIL trials | Infinite retry loop if objective always fails |
 | Performance | Cache | `_CachedStorage` reduces DB round-trips | Cache invalidation risk across threads |
-| Performance | Lazy loading | `_LazyImport` for `visualization`, `importance`, `artifacts` | None |
+| Performance | Lazy loading | `_LazyImport` for `visualization`, `importance`, `artifacts` | Import errors hidden until access |
+| Performance | Minimize kernel size | Core = study/ + trial/ + distributions.py only | God Object risk — Study accumulates responsibilities |
 | Modifiability | Anticipate expected changes | Plugin ABCs = explicit extension contracts | None |
 | Modifiability | Deprecation policy | 2-version grace period via `_deprecated.py` | Dead code accumulates for 2–3 versions |
+| Modifiability | Separate pipeline stages | Each `_run_trial()` phase independently replaceable | Synchronous coupling between stages |
 | Usability | Façade | `create_study()` hides all wiring complexity | Masks God Object — complexity hidden, not resolved |
 | Interoperability | Shim layer | `integration/` = 5-line redirects to `optuna-integration` | Extra indirection — harder to trace errors |
+| Interoperability | Abstract persistence contract | `BaseStorage` — 18 methods — any backend pluggable | Heaviest ABC contract in the codebase |
 
 ---
 
@@ -139,8 +147,9 @@ Full tracker →
 | **LSP violation** | `optuna_integration/pytorch_lightning.py` | `isinstance(storage, _CachedStorage)` — breaks LSP in DDP mode |
 | **Synchronous callbacks** | `study/_optimize.py` L.174 | Slow MLflow/W&B server = trial latency — no timeout mechanism |
 | **GrpcStorageProxy experimental** | `storages/_grpc/client.py` — `@experimental_class("4.2.0")` | API unstable — not safe for production SLA |
+| **Repository contract too heavy** | `storages/_base.py` — 18 abstract methods | Custom storage requires implementing all 18 — no partial contract |
+| **Pipeline synchronous only** | `study/_optimize.py` | No streaming between pipeline stages — each stage blocks the next |
 
----
 
 ## References
 
@@ -151,4 +160,3 @@ Full tracker →
 - Optuna Documentation. https://optuna.readthedocs.io
 - Optuna GitHub. https://github.com/optuna/optuna
 - Bergstra et al. (2013). *Making a Science of Model Search.* ICML 2013.
-```
