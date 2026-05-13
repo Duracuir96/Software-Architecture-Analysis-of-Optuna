@@ -37,6 +37,9 @@
 | 5 Very large scale | `GrpcStorageProxy` | N + proxy | ✅ | ✅ |
 
 ---
+<img width="700" height="500" alt="image" src="https://github.com/user-attachments/assets/705bb2e5-9eac-47cf-ad40-7788e56c2723" />
+<img width="700" height="508" alt="image" src="https://github.com/user-attachments/assets/f9780932-8481-455c-8a3c-633b8bb79d4f" />
+
 
 ## The architectural key
 
