@@ -47,14 +47,14 @@ the entire framework.
 
 ## 6 Architectural Views
 
-| # | View | Kruchten | Question answered | Folder | Status |
-|---|---|---|---|---|---|
-| 1 | Module Decomposition | Development View | How is the code organized statically? | `views/view-1-module-decomposition/` | ✅ Step 2 |
-| 2 | Component & Connector | Process View | How do components interact at runtime? | `views/view-2-component-connector/` | ✅ Step 3 |
-| 3 | Class & Inheritance | Logical View | How is the type hierarchy structured? | `views/view-3-class-inheritance/` | ✅ Step 3 |
-| 4 | Deployment | Physical View | How is Optuna deployed in real systems? | `views/view-4-deployment/` | ✅ Step 6 |
-| 5 | Historical Evolution | *(bonus)* | How has the architecture evolved 2018→2026? | `views/view-5-historical-evolution/` | ✅ Step 6 |
-| 6 | Dependency & Coupling | *(bonus)* | Who depends on what, and how tightly? | `views/view-6-dependency-coupling/` | ✅ Step 6 |
+| # | View | Kruchten 4+1 | Question answered | Folder |
+|---|------|---------------|-------------------|--------|
+| 1 | Module Decomposition | Development View | Static code organization | [`views/view-1-module-decomposition/`](views/view-1-module-decomposition/) |
+| 2 | Component & Connector | Process View | Runtime interactions | [`views/view-2-component-connector/`](views/view-2-component-connector/) |
+| 3 | Class & Inheritance | Logical View | Type hierarchy (ABCs) | [`views/view-3-class-inheritance/`](views/view-3-class-inheritance/) |
+| 4 | Deployment | Physical View | Deployment & runtime nodes | [`views/view-4-deployment/`](views/view-4-deployment/) |
+| 5 | Historical Evolution | *(bonus)* | Evolution 2018 → 2026 | [`views/view-5-historical-evolution/`](views/view-5-historical-evolution/) |
+| 6 | Dependency & Coupling | *(bonus)* | Coupling & import analysis | [`views/view-6-dependency-coupling/`](views/view-6-dependency-coupling/) |
 
 ---
 
